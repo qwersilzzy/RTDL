@@ -1,0 +1,52 @@
+
+
+conda create -n revisiting-models python=3.8.8
+
+conda activate revisiting-models
+
+
+pip install torch==1.12.1+cu113 torchvision==0.13.1+cu113 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu113
+
+pip install numpy
+
+
+conda install cudnn=7.6.5 -c anaconda -y
+
+pip install -r requirements.txt
+
+set PROJECT_DIR=<E:\Personnel\Jiayi Feng\tabular-dl-revisiting-models-main\tabular-dl-revisiting-models-main>
+
+echo %PROJECT_DIR%
+
+conda env config vars set PYTHONPATH=${PYTHONPATH}:${PROJECT_DIR}
+conda env config vars set PROJECT_DIR=${PROJECT_DIR}
+conda env config vars set LD_LIBRARY_PATH=${CONDA_PREFIX}/lib:${LD_LIBRARY_PATH}
+conda env config vars set CUDA_HOME=${CONDA_PREFIX}
+conda env config vars set CUDA_ROOT=${CONDA_PREFIX}
+
+conda deactivate
+conda activate revisiting-models
+
+
+conda info --envs
+
+where python
+
+CUDA_VISIBLE_DEVICES=0
+PROJECT_DIR = E:\Personnel\Jiayi Feng\tabular-dl-revisiting-models-main\tabular-dl-revisiting-models-main
+
+nvml_lib = CDLL(os.path.join("E:\\Personnel\\Jiayi Feng\\NVSMI", "nvml.dll"))
+
+
+
+
+import os
+import sys
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+project_root = os.path.dirname(script_dir)
+
+sys.path.append(project_root)
+
+pip install toml
