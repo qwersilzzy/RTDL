@@ -1,5 +1,17 @@
 # %%
 
+import os
+import sys
+
+# Get the directory containing the script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Move one directory up to get the project root
+project_root = os.path.dirname(script_dir)
+
+# Append the project root to the system's Python path
+sys.path.append(project_root)
+
 import math
 import typing as ty
 from pathlib import Path
@@ -16,6 +28,10 @@ import lib
 import MH_Embedding
 from collections import Counter
 from sklearn.preprocessing import LabelEncoder
+
+import os
+import json
+
 
 class MLP(nn.Module):
     def __init__(self, d_in, d_layers, dropout, d_out, categories=None, d_embedding=None, multi_hot_params=None, bins_type=None, bins=100):
@@ -117,52 +133,15 @@ else:
 X_num, X_cat = X
 
 
-# # ####################################################################################
-#
-# X_train, X_val, X_test = X_num['train'] , X_num['val'], X_num['test']
-# X_train, X_val, X_test = MH_Embedding.bins_discrete('ewde', X_train, X_val, X_test, bins=100)
-# X_train = X_train.cuda()
-# X_val= X_val.cuda()
-# X_test= X_test.cuda()
-# X_num['train'] , X_num['val'], X_num['test'] = X_train, X_val, X_test
-#
-# # fetch batch by batch, rather than ...
-# # ####################################################################################
 
-# ####################################################################################
-category_index_list = []
-number_index_list = []
-X_train, X_val, X_test = X_num['train'], X_num['val'], X_num['test']
-if X_cat == None:
-    for i in range(X_train.shape[1]):
-        if len(list(Counter(X_train[:, i].cpu().tolist()))) < 200:
-            category_index_list.append(i)
-            y = X_train[:, i]
-            label = LabelEncoder()
-            X_train[:, i] = torch.tensor(label.fit_transform(y.cpu())).cuda()
-            X_val[:, i] = torch.tensor(label.transform(X_val[:, i].cpu())).cuda()
-            X_test[:, i] = torch.tensor(label.transform(X_test[:, i].cpu())).cuda()
-
-        else:
-            number_index_list.append(i)
-
-    X_cat = {}
-
-    X_cat['train'] = X_num['train'][:, category_index_list]
-    X_cat['val'] = X_num['val'][:, category_index_list]
-    X_cat['test'] = X_num['test'][:, category_index_list]
-
-    X_num['train'] = X_num['train'][:, number_index_list]
-    X_num['val'] = X_num['val'][:, number_index_list]
-    X_num['test'] = X_num['test'][:, number_index_list]
-
-# ####################################################################################
 
 
 # ####################################################################################
+bins = 0
+inv = 10
 # Apply MH_Embedding.bins_discrete() to numerical data
 X_num_train, X_num_val, X_num_test = X_num['train'], X_num['val'], X_num['test']
-X_num_train, X_num_val, X_num_test = MH_Embedding.bins_discrete('efde', X_num_train, X_num_val, X_num_test, bins=100)
+X_num_train, X_num_val, X_num_test = MH_Embedding.bins_discrete('efde', X_num_train, X_num_val, X_num_test, bins)
 
 X_num_train = X_num_train.cuda()
 X_num_val = X_num_val.cuda()
@@ -170,15 +149,7 @@ X_num_test = X_num_test.cuda()
 
 X_num['train'], X_num['val'], X_num['test'] = X_num_train, X_num_val, X_num_test
 
-# Apply MH_Embedding.bins_discrete() to categorical data
-X_cat_train, X_cat_val, X_cat_test = X_cat['train'], X_cat['val'], X_cat['test']
-# X_cat_train, X_cat_val, X_cat_test = MH_Embedding.bins_discrete('efde', X_cat_train, X_cat_val, X_cat_test, bins=100)
 
-X_cat_train = X_cat_train.cuda()
-X_cat_val = X_cat_val.cuda()
-X_cat_test = X_cat_test.cuda()
-
-X_cat['train'], X_cat['val'], X_cat['test'] = X_cat_train, X_cat_val, X_cat_test
 # ####################################################################################
 
 
@@ -207,10 +178,9 @@ model = MLP(
         "module": 'efde',
         "emb_size": 20,
             # MHE_output_dimension=emb_size*num_feature
-        "total": 200,
-        "inv": 3,
-        "bins": 100,
-        # total = bins*2
+        "total": bins*2,
+        "inv": inv,
+        "bins": bins,
         "num_feature": X_num['train'].shape[1],
         "device": device,
         "emb_hid_layers": 0
@@ -259,8 +229,8 @@ def evaluate(parts):
             torch.cat(
                 [
                     model(
-                        None if X_num is None else X_num[part][idx],
-                        None if X_cat is None else X_cat[part][idx],
+                        None if X_num is None else X_num[part][idx].cuda(),
+                        None if X_cat is None else X_cat[part][idx].cuda(),
                     )
                     for idx in lib.IndexLoader(
                         D.size(part),
@@ -332,26 +302,6 @@ for epoch in stream.epochs(args['training']['n_epochs']):
             ),
             Y_device[lib.TRAIN][batch_idx],
         )
-        # #################################################################
-        # if X_num is None:
-        #     x_num = None
-        # else:
-        #     x_num = X_num[lib.TRAIN][batch_idx].cuda()
-        #
-        # if X_cat is None:
-        #     x_cat = None
-        # else:
-        #     x_cat = X_cat[lib.TRAIN][batch_idx].cuda()
-        # #################################################################
-        # loss = loss_fn(
-        #     model(
-        #         #################################################################
-        #         x_num,
-        #         x_cat
-        #         #################################################################
-        #     ),
-        #     Y_device[lib.TRAIN][batch_idx],
-        # )
         loss.backward()
         optimizer.step()
         epoch_losses.append(loss.detach())

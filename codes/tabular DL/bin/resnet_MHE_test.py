@@ -1,4 +1,16 @@
 # %%
+import os
+import sys
+
+# Get the directory containing the script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Move one directory up to get the project root
+project_root = os.path.dirname(script_dir)
+
+# Append the project root to the system's Python path
+sys.path.append(project_root)
+
 import math
 import typing as ty
 from pathlib import Path
@@ -13,14 +25,19 @@ from torch import Tensor
 import lib
 
 import MH_Embedding
+
+
 from collections import Counter
 from sklearn.preprocessing import LabelEncoder
 # %%
 
+
+
+
 class ResNet(nn.Module):
     def __init__(self, d_numerical, d, d_hidden_factor, n_layers, activation,
                  normalization, hidden_dropout, residual_dropout, d_out, categories=None, d_embedding=160, multi_hot_params=None,
-                 bins_type=None, bins=100):
+                 bins_type=None, bins=50):
 
         super(ResNet, self).__init__()
         self.bins_type = bins_type
@@ -40,11 +57,11 @@ class ResNet(nn.Module):
         d_hidden = int(d * d_hidden_factor)
 
 
-        # # MultiHot_Embedding
-        # if multi_hot_params:
-        #     self.multi_hot_embedding = MH_Embedding.MultiHot_Embedding(**multi_hot_params)
-        #     d_in = multi_hot_params["num_feature"] * multi_hot_params["emb_size"]
-        #     # MultiHot_Embedding input feature shape = multi_hot_params["num_feature"] * multi_hot_params["emb_size"]
+        # MultiHot_Embedding
+        if multi_hot_params:
+            self.multi_hot_embedding = MH_Embedding.MultiHot_Embedding(**multi_hot_params)
+            d_in = multi_hot_params["num_feature"] * multi_hot_params["emb_size"]
+            # MultiHot_Embedding input feature shape = multi_hot_params["num_feature"] * multi_hot_params["emb_size"]
 
 
         # Category embeddings
@@ -77,36 +94,6 @@ class ResNet(nn.Module):
         print('modules, invs, bins, total:::', multi_hot_params["module"], multi_hot_params["inv"],
               multi_hot_params["bins"], multi_hot_params["total"])
 
-    # def forward(self, x_num: Tensor, x_cat: ty.Optional[Tensor], multi_hot_params=None) -> Tensor:
-    #     x = []
-    #     if x_num is not None:
-    #         # Check if we're using MultiHot_Embedding
-    #         if multi_hot_params is None:
-    #             self.multi_hot_embedding = MH_Embedding.MultiHot_Embedding(**multi_hot_params)
-    #             x_num_MHE = self.multi_hot_embedding(x_num)
-    #             x.append(x_num_MHE)
-    #         else:
-    #             x.append(x_num)
-    #
-    #     if x_cat is not None:
-    #         # Check if we're using MultiHot_Embedding
-    #         if multi_hot_params is None:
-    #             self.multi_hot_embedding = MH_Embedding.MultiHot_Embedding(**multi_hot_params)
-    #             x_cat_MHE = self.multi_hot_embedding(x_cat)
-    #             x.append(
-    #                 self.category_embeddings(x_cat_MHE + self.category_offsets[None]).view(
-    #                     x_cat_MHE.size(0), -1
-    #                 )
-    #             )
-    #         else:
-    #             x.append(
-    #                 self.category_embeddings(x_cat.long() + self.category_offsets[None]).view(
-    #                     x_cat.size(0), -1
-    #                 )
-    #             )
-    #     x = torch.cat(x, dim=-1)
-
-
 
     def forward(self, x_num: Tensor, x_cat: ty.Optional[Tensor]) -> Tensor:
         x = []
@@ -116,7 +103,6 @@ class ResNet(nn.Module):
             x_num_MHE = self.multi_hot_embedding(x_num)
             # x_num_MHE.shape()=emb_size*num_feature
             x.append(x_num_MHE)
-            # x.append(x_num)
 
 
         # Category MHE
@@ -193,73 +179,28 @@ if __name__ == "__main__":
 
 
     X_num, X_cat = X
-    # # ####################################################################################
-    # category_index_list = []
-    # number_index_list = []
-    # X_train, X_val, X_test = X_num['train'], X_num['val'], X_num['test']
-    # if X_cat == None:
-    #     for i in range(X_train.shape[1]):
-    #         if len(list(Counter(X_train[: , i].cpu().tolist()))) < 200:
-    #             category_index_list.append(i)
-    #             y = X_train[: , i]
-    #             label = LabelEncoder()
-    #             X_train[:, i] = torch.tensor(label.fit_transform(y.cpu())).cuda()
-    #             X_val[:, i] = torch.tensor(label.transform(X_val[:, i].cpu())).cuda()
-    #             X_test[:, i] = torch.tensor(label.transform(X_test[:, i].cpu())).cuda()
-    #
-    #         else:
-    #             number_index_list.append(i)
-    #
-    #     X_cat = {}
-    #
-    #     X_cat['train'] = X_num['train'][:, category_index_list]
-    #     X_cat['val'] = X_num['val'][:, category_index_list]
-    #     X_cat['test'] = X_num['test'][:, category_index_list]
-    #
-    #
-    #     X_num['train'] = X_num['train'][ : , number_index_list]
-    #     X_num['val'] = X_num['val'][:, number_index_list]
-    #     X_num['test'] = X_num['test'][:, number_index_list]
-    #
-    #
-    # # ####################################################################################
-    #
-    #
-    #
-    # # ####################################################################################
-    # # Apply MH_Embedding.bins_discrete() to numerical data
-    # X_num_train, X_num_val, X_num_test = X_num['train'], X_num['val'], X_num['test']
-    # X_num_train, X_num_val, X_num_test = MH_Embedding.bins_discrete('efde', X_num_train, X_num_val, X_num_test, bins=100)
-    #
-    # X_num_train = X_num_train.cuda()
-    # X_num_val = X_num_val.cuda()
-    # X_num_test = X_num_test.cuda()
-    #
-    # X_num['train'], X_num['val'], X_num['test'] = X_num_train, X_num_val, X_num_test
-    #
-    # # Apply MH_Embedding.bins_discrete() to categorical data
-    # X_cat_train, X_cat_val, X_cat_test = X_cat['train'], X_cat['val'], X_cat['test']
-    # # X_cat_train, X_cat_val, X_cat_test = MH_Embedding.bins_discrete('efde', X_cat_train, X_cat_val, X_cat_test, bins=100)
-    #
-    # X_cat_train = X_cat_train.cuda()
-    # X_cat_val = X_cat_val.cuda()
-    # X_cat_test = X_cat_test.cuda()
-    #
-    # X_cat['train'], X_cat['val'], X_cat['test'] = X_cat_train, X_cat_val, X_cat_test
+
 
     # ####################################################################################
+    # Apply MH_Embedding.bins_discrete() to numerical data
+    # print('number_index_list::', number_index_list)
+    # print('category_index_list::', category_index_list)
+    bins = 100
+    inv = 0
 
-    # # ####################################################################################
-    #
-    # X_train, X_val, X_test = X_num['train'], X_num['val'], X_num['test']
-    # X_train, X_val, X_test = MH_Embedding.bins_discrete('efde', X_train, X_val, X_test, bins=20)
-    # X_train = X_train.cuda()
-    # X_val = X_val.cuda()
-    # X_test = X_test.cuda()
-    # X_num['train'], X_num['val'], X_num['test'] = X_train, X_val, X_test
-    #
-    # # fetch batch by batch, rather than ...
-    # # ####################################################################################
+
+    X_num_train, X_num_val, X_num_test = X_num['train'], X_num['val'], X_num['test']
+    X_num_train, X_num_val, X_num_test = MH_Embedding.bins_discrete('efde', X_num_train, X_num_val, X_num_test, bins)
+
+    X_num_train = X_num_train.cuda()
+    X_num_val = X_num_val.cuda()
+    X_num_test = X_num_test.cuda()
+
+    X_num['train'], X_num['val'], X_num['test'] = X_num_train, X_num_val, X_num_test
+
+
+    ###################################################################################
+
     if not D.is_multiclass:
         Y_device = {k: v.float() for k, v in Y_device.items()}
 
@@ -281,17 +222,12 @@ if __name__ == "__main__":
         categories=lib.get_categories(X_cat),
         multi_hot_params={
             "module": 'efde',
-            # "module": 'ewde',
             "emb_size": 20,
             # MHE_output_dimension=emb_size*num_feature
-            "bins": 100,
-            "total": 200,
-            "inv": 3,
-            # "inv": [3, 10]
-            # "bins": 100,
-            # "bins": [50, 500]
-            # total = bins*2
-            "num_feature": 6,
+            "bins": bins,
+            "total": bins*2,
+            "inv": inv,
+            "num_feature": X_num['train'].shape[1],
             "device": device,
             "emb_hid_layers": 0,
         },
@@ -338,8 +274,8 @@ if __name__ == "__main__":
                 torch.cat(
                     [
                         model(
-                            None if X_num is None else X_num[part][idx],
-                            None if X_cat is None else X_cat[part][idx],
+                            None if X_num is None else X_num[part][idx].cuda(),
+                            None if X_cat is None else X_cat[part][idx].cuda(),
                         )
                         for idx in lib.IndexLoader(
                             D.size(part),

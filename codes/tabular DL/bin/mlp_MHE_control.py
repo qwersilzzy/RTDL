@@ -31,16 +31,7 @@ from sklearn.preprocessing import LabelEncoder
 
 import os
 import json
-# Get the JSON file path from the environment variable
-json_file_path = os.environ['JSON_FILE_PATH']
 
-# Open the JSON file and load its contents into a dictionary
-with open(json_file_path, 'r') as json_file:
-    data = json.load(json_file)
-
-# Extract the inv and bins values from the dictionary
-inv = data['inv']
-bins = data['bins']
 
 class MLP(nn.Module):
     def __init__(self, d_in, d_layers, dropout, d_out, categories=None, d_embedding=None, multi_hot_params=None, bins_type=None, bins=100):
@@ -71,8 +62,7 @@ class MLP(nn.Module):
         )
         self.dropout = dropout
         self.head = nn.Linear(d_layers[-1] if d_layers else d_in, d_out)
-        print('modules, invs, bins, total:::', multi_hot_params["module"], multi_hot_params["inv"],
-              multi_hot_params["bins"], multi_hot_params["total"])
+
     def forward(self, x_num, x_cat):
         x = []
 
@@ -146,8 +136,8 @@ X_num, X_cat = X
 
 
 # ####################################################################################
-# bins = 100
-# inv = 4
+bins = 0
+inv = 0
 # Apply MH_Embedding.bins_discrete() to numerical data
 X_num_train, X_num_val, X_num_test = X_num['train'], X_num['val'], X_num['test']
 X_num_train, X_num_val, X_num_test = MH_Embedding.bins_discrete('efde', X_num_train, X_num_val, X_num_test, bins)
@@ -185,8 +175,7 @@ model = MLP(
     categories=lib.get_categories(X_cat),
     multi_hot_params={
         "module": 'efde',
-        "emb_size": 3,
-        # "emb_size": [2,3],
+        "emb_size": 20,
             # MHE_output_dimension=emb_size*num_feature
         "total": bins*2,
         "inv": inv,

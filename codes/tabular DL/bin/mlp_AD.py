@@ -24,7 +24,7 @@ import zero
 
 
 import lib
-
+from AD_Embedding import AD_Embedding
 import MH_Embedding
 from collections import Counter
 from sklearn.preprocessing import LabelEncoder
@@ -42,17 +42,27 @@ with open(json_file_path, 'r') as json_file:
 inv = data['inv']
 bins = data['bins']
 
+
 class MLP(nn.Module):
-    def __init__(self, d_in, d_layers, dropout, d_out, categories=None, d_embedding=None, multi_hot_params=None, bins_type=None, bins=100):
+    def __init__(self, d_in, d_layers, dropout, d_out, categories=None, d_embedding=None, ad_params=None, bins_type=None, bins=100):
         super(MLP, self).__init__()
         self.bins_type = bins_type
         self.bins = bins
 
-        # MultiHot_Embedding
-        if multi_hot_params:
-            self.multi_hot_embedding = MH_Embedding.MultiHot_Embedding(**multi_hot_params)
-            d_in = multi_hot_params["num_feature"] * multi_hot_params["emb_size"]
-            # MultiHot_Embedding input feature shape = multi_hot_params["num_feature"] * multi_hot_params["emb_size"]
+
+        self.ad_embedding = AD_Embedding(num_feature=ad_params['num_feature'],
+                                         bins=ad_params['bins'],
+                                         t=ad_params['t'],
+                                         emb_size=ad_params['emb_size'])
+        # # MultiHot_Embedding
+        # if multi_hot_params:
+        #     self.multi_hot_embedding = MH_Embedding.MultiHot_Embedding(**multi_hot_params)
+        #     d_in = multi_hot_params["num_feature"] * multi_hot_params["emb_size"]
+        #     # MultiHot_Embedding input feature shape = multi_hot_params["num_feature"] * multi_hot_params["emb_size"]
+
+
+        d_in = ad_params['num_feature'] * ad_params['emb_size']
+
         # Category embeddings
         if categories:
             d_in += len(categories) * d_embedding
@@ -71,16 +81,21 @@ class MLP(nn.Module):
         )
         self.dropout = dropout
         self.head = nn.Linear(d_layers[-1] if d_layers else d_in, d_out)
-        print('modules, invs, bins, total:::', multi_hot_params["module"], multi_hot_params["inv"],
-              multi_hot_params["bins"], multi_hot_params["total"])
+
     def forward(self, x_num, x_cat):
         x = []
 
-        # MultiHot_Embedding
+        # # MultiHot_Embedding
+        # if x_num is not None:
+        #     x_num_MHE = self.multi_hot_embedding(x_num)
+        #     # x_num_MHE.shape()=emb_size*num_feature
+        #     x.append(x_num_MHE)
+
         if x_num is not None:
-            x_num_MHE = self.multi_hot_embedding(x_num)
+            x_num_ad = self.ad_embedding(x_num.unsqueeze(1))
             # x_num_MHE.shape()=emb_size*num_feature
-            x.append(x_num_MHE)
+            # torch.unsqueeze(input, dim)
+            x.append(x_num_ad)
 
         # Category embeddings
         if x_cat is not None and hasattr(self, 'category_embeddings'):
@@ -148,9 +163,11 @@ X_num, X_cat = X
 # ####################################################################################
 # bins = 100
 # inv = 4
+emb_size = 2
+t = 0.05
 # Apply MH_Embedding.bins_discrete() to numerical data
 X_num_train, X_num_val, X_num_test = X_num['train'], X_num['val'], X_num['test']
-X_num_train, X_num_val, X_num_test = MH_Embedding.bins_discrete('efde', X_num_train, X_num_val, X_num_test, bins)
+# X_num_train, X_num_val, X_num_test = MH_Embedding.bins_discrete('efde', X_num_train, X_num_val, X_num_test, bins)
 
 X_num_train = X_num_train.cuda()
 X_num_val = X_num_val.cuda()
@@ -183,17 +200,13 @@ model = MLP(
     d_in=0 if X_num is None else X_num['train'].shape[1],
     d_out=D.info['n_classes'] if D.is_multiclass else 1,
     categories=lib.get_categories(X_cat),
-    multi_hot_params={
-        "module": 'efde',
-        "emb_size": 3,
-        # "emb_size": [2,3],
-            # MHE_output_dimension=emb_size*num_feature
-        "total": bins*2,
-        "inv": inv,
+    ad_params={
+        "emb_size": emb_size,
+        # MHE_output_dimension=emb_size*num_feature
         "bins": bins,
         "num_feature": X_num['train'].shape[1],
         "device": device,
-        "emb_hid_layers": 0
+        "t": t,
     },
     **args['model'],
 ).to(device)

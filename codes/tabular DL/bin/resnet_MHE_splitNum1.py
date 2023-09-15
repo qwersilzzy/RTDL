@@ -1,4 +1,5 @@
 # %%
+
 import os
 import sys
 
@@ -47,8 +48,8 @@ bins = data['bins']
 
 
 
-class ResNet(nn.Module):
-    def __init__(self, d_numerical, d, d_hidden_factor, n_layers, activation,
+class ResNet(nn.Module): # <NOTE>
+    def __init__(self, d_numerical, d_numerical_nHM, d, d_hidden_factor, n_layers, activation,
                  normalization, hidden_dropout, residual_dropout, d_out, categories=None, d_embedding=160, multi_hot_params=None,
                  bins_type=None, bins=50):
 
@@ -76,6 +77,9 @@ class ResNet(nn.Module):
             d_in = multi_hot_params["num_feature"] * multi_hot_params["emb_size"]
             # MultiHot_Embedding input feature shape = multi_hot_params["num_feature"] * multi_hot_params["emb_size"]
 
+        # <NOTE>
+        if d_numerical_nHM != 0:
+            d_in += d_numerical_nHM
 
         # Category embeddings
         if categories is not None:
@@ -107,8 +111,8 @@ class ResNet(nn.Module):
         print('modules, invs, bins, total:::', multi_hot_params["module"], multi_hot_params["inv"],
               multi_hot_params["bins"], multi_hot_params["total"])
 
-
-    def forward(self, x_num: Tensor, x_cat: ty.Optional[Tensor]) -> Tensor:
+    # <NOTE>
+    def forward(self, x_num: Tensor, X_num_nMHE: ty.Optional[Tensor], x_cat: ty.Optional[Tensor]) -> Tensor:
         x = []
 
         # numerical MHE
@@ -117,6 +121,10 @@ class ResNet(nn.Module):
             # x_num_MHE.shape()=emb_size*num_feature
             x.append(x_num_MHE)
 
+        # numerical features without MHE
+        if X_num_nMHE is not None:
+            # <NOTE>
+            x.append(X_num_nMHE)
 
         # Category MHE
         if x_cat is not None:
@@ -193,33 +201,34 @@ if __name__ == "__main__":
 
     X_num, X_cat = X
     # # ####################################################################################
-    # category_index_list = []
-    # number_index_list = []
-    # X_train, X_val, X_test = X_num['train'], X_num['val'], X_num['test']
-    # if X_cat == None:
-    #     for i in range(X_train.shape[1]):
-    #         if len(list(Counter(X_train[: , i].cpu().tolist()))) < 150:
-    #             category_index_list.append(i)
-    #             y = X_train[: , i]
-    #             label = LabelEncoder()
-    #             X_train[:, i] = torch.tensor(label.fit_transform(y.cpu())).cuda()
-    #             X_val[:, i] = torch.tensor(label.transform(X_val[:, i].cpu())).cuda()
-    #             X_test[:, i] = torch.tensor(label.transform(X_test[:, i].cpu())).cuda()
-    #
-    #         else:
-    #             number_index_list.append(i)
-    #
-    #     X_cat = {}
-    #
-    #     X_cat['train'] = X_num['train'][:, category_index_list]
-    #     X_cat['val'] = X_num['val'][:, category_index_list]
-    #     X_cat['test'] = X_num['test'][:, category_index_list]
-    #
-    #
-    #     X_num['train'] = X_num['train'][ : , number_index_list]
-    #     X_num['val'] = X_num['val'][:, number_index_list]
-    #     X_num['test'] = X_num['test'][:, number_index_list]
-    #
+    # <NOTE>
+    nMHE_index_list = []
+    number_index_list = []
+    X_train, X_val, X_test = X_num['train'], X_num['val'], X_num['test']
+    X_num_nMHE = {}
+    for i in range(X_train.shape[1]):
+        if len(list(Counter(X_train[: , i].cpu().tolist()))) < 150:
+            nMHE_index_list.append(i)
+            # y = X_train[: , i]
+            # label = LabelEncoder()
+            # X_train[:, i] = torch.tensor(label.fit_transform(y.cpu())).cuda()
+            # X_val[:, i] = torch.tensor(label.transform(X_val[:, i].cpu())).cuda()
+            # X_test[:, i] = torch.tensor(label.transform(X_test[:, i].cpu())).cuda()
+
+        else:
+            number_index_list.append(i)
+
+    if len(nMHE_index_list) != 0:
+        X_num_nMHE['train'] = X_num['train'][:, nMHE_index_list].cuda()
+        X_num_nMHE['val'] = X_num['val'][:, nMHE_index_list].cuda()
+        X_num_nMHE['test'] = X_num['test'][:, nMHE_index_list].cuda()
+    else:
+        X_num_nMHE = None
+
+    X_num['train'] = X_num['train'][ : , number_index_list]
+    X_num['val'] = X_num['val'][:, number_index_list]
+    X_num['test'] = X_num['test'][:, number_index_list]
+    # <NOTE>
 
     # ####################################################################################
 
@@ -230,7 +239,7 @@ if __name__ == "__main__":
     # print('number_index_list::', number_index_list)
     # print('category_index_list::', category_index_list)
     # bins = 100
-    # inv = 9
+    # inv = 14
 
 
     X_num_train, X_num_val, X_num_test = X_num['train'], X_num['val'], X_num['test']
@@ -242,6 +251,15 @@ if __name__ == "__main__":
 
     X_num['train'], X_num['val'], X_num['test'] = X_num_train, X_num_val, X_num_test
 
+    # # Apply MH_Embedding.bins_discrete() to categorical data
+    # X_cat_train, X_cat_val, X_cat_test = X_cat['train'], X_cat['val'], X_cat['test']
+    # # X_cat_train, X_cat_val, X_cat_test = MH_Embedding.bins_discrete('efde', X_cat_train, X_cat_val, X_cat_test, bins=100)
+    #
+    # X_cat_train = X_cat_train.cuda()
+    # X_cat_val = X_cat_val.cuda()
+    # X_cat_test = X_cat_test.cuda()
+    #
+    # X_cat['train'], X_cat['val'], X_cat['test'] = X_cat_train, X_cat_val, X_cat_test
 
     ###################################################################################
 
@@ -263,11 +281,12 @@ if __name__ == "__main__":
     #########################################################################################
     model = ResNet(
         d_numerical=0 if X_num is None else X_num['train'].shape[1],
+        # <NOTE>
+        d_numerical_nHM=0 if X_num_nMHE is None else X_num_nMHE['train'].shape[1],
         categories=lib.get_categories(X_cat),
         multi_hot_params={
             "module": 'efde',
-            "emb_size": 3,
-            # "emb_size": [2,3],
+            "emb_size": 20,
             # MHE_output_dimension=emb_size*num_feature
             "bins": bins,
             "total": bins*2,
@@ -320,6 +339,8 @@ if __name__ == "__main__":
                     [
                         model(
                             None if X_num is None else X_num[part][idx].cuda(),
+                            # <NOTE>
+                            None if X_num_nMHE is None else X_num_nMHE[part][idx].cuda(),
                             None if X_cat is None else X_cat[part][idx].cuda(),
                         )
                         for idx in lib.IndexLoader(
@@ -378,6 +399,9 @@ if __name__ == "__main__":
             loss = loss_fn(
                 model(
                     None if X_num is None else X_num[lib.TRAIN][batch_idx].cuda(),
+                    # <NOTE>
+                    # None if X_num_nMHE is None else X_num_nMHE[lib.TRAIN][idx].cuda(),
+                    None if X_num_nMHE is None else X_num_nMHE[lib.TRAIN][batch_idx].cuda(),
                     None if X_cat is None else X_cat[lib.TRAIN][batch_idx].cuda(),
                 ),
                 Y_device[lib.TRAIN][batch_idx],

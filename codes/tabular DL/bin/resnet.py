@@ -1,4 +1,17 @@
 # %%
+
+import os
+import sys
+
+# Get the directory containing the script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
+# Move one directory up to get the project root
+project_root = os.path.dirname(script_dir)
+
+# Append the project root to the system's Python path
+sys.path.append(project_root)
+
 import math
 import typing as ty
 from pathlib import Path
