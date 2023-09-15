@@ -19,16 +19,3 @@ flake8
 icecream
 isort
 
-# Jupyter
-ipywidgets
-jupyterlab
-jupyterlab-nvdashboard
-voila
-
-# Visualization
-bokeh
-colorcet
-holoviews
-matplotlib
-panel
-seaborn

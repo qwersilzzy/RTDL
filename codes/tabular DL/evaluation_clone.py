@@ -29,7 +29,7 @@ import os
 import shutil
 
 # Directory name variable
-dir_name = 'tuned_reproduced_MHE_tune_test'
+dir_name = 'seed_test'
 
 # Models array
 models = [
@@ -57,7 +57,7 @@ datasets = [
 ]
 
 # Generate routes using nested list comprehensions
-routes = [f'output/{datasets[1]}/{models[2]}/{dir_name}/']
+routes = [f'output/{datasets[5]}/{models[2]}/{dir_name}/']
 
 #
 # ###############################
@@ -96,6 +96,6 @@ for route in routes:
 
 
 
-
+    # "resnet_MHE_splitNum1",
 
 
